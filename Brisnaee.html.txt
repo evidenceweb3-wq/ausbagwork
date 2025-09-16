@@ -1,0 +1,238 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>$AUSBAGWORK — US & AUS Time Map</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  <style>
+    html, body, #map { height: 100%; margin:0; padding:0; }
+    body { font-family: Arial, sans-serif; background:#f9f9f9; }
+
+    /* Centered title with gradient text inside rounded gradient border */
+    #title-container {
+      position: absolute;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      text-align: center;
+      z-index: 1000;
+      pointer-events: none;
+    }
+    #title-box {
+      display: inline-block;
+      padding: 10px 20px;
+      border-radius: 15px;
+      background: linear-gradient(90deg, #00FFA3, #DC1FFF, #00FFA3); /* Solana-like gradient */
+      -webkit-background-clip: padding-box;
+      color: #fff;
+      font-size: 32px;
+      font-weight: bold;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      border: 3px solid transparent;
+      background-clip: text, border-box;
+      -webkit-background-clip: text, padding-box;
+      -webkit-text-fill-color: transparent;
+      position: relative;
+    }
+    #title-box::before {
+      content: '';
+      position: absolute;
+      top:0; left:0; right:0; bottom:0;
+      border-radius: 15px;
+      padding:3px;
+      background: linear-gradient(90deg, #00FFA3, #DC1FFF, #00FFA3);
+      -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+      -webkit-mask-composite: destination-out;
+      mask-composite: exclude;
+      pointer-events:none;
+    }
+
+    #subtitle {
+      font-size: 24px;
+      font-weight: bold;
+      color: #000;
+      margin-top: 25px; /* 25px below title box */
+    }
+    #current-location {
+      font-size: 30px;
+      font-weight: bold;
+      color: #555;
+      margin-top: 10px;
+    }
+
+    /* Bottom panel */
+    .bottom-panel {
+      position: absolute; bottom:0; left:0; right:0;
+      background: rgba(255,255,255,0.95);
+      padding: 14px 14px;
+      display:flex; flex-direction:column; align-items:center;
+      border-top:1px solid #ddd;
+      z-index:1000;
+    }
+
+    /* Price panel */
+    .price-panel {
+      width:100%;
+      text-align:center;
+      margin-bottom:8px;
+      font-weight:bold;
+      font-size:18.2px; /* 30% bigger */
+      background: #000;
+      color: #fff;
+      padding: 6px 0;
+      border-radius: 4px;
+    }
+
+    .clock-container {
+      display:flex; justify-content: space-around; flex-wrap:wrap; width:100%;
+      background: #fff; /* white background as first versions */
+      padding: 6px 0;
+      border-radius: 6px;
+    }
+
+    .clock {
+      margin: 4px 10px;
+      text-align:center;
+    }
+    .label { font-size:12px; color:#555; margin-bottom:4px; }
+    .time { font-weight:bold; font-size:16px; color:#000; }
+
+    /* Pulsing marker */
+    .ping-wrapper { position:relative; width:18px; height:18px; }
+    .ping-dot {
+      width:14px; height:14px; border-radius:50%; background:#ff4d4d;
+      position:absolute; left:50%; top:50%; transform:translate(-50%,-50%);
+    }
+    .ping-circle {
+      position:absolute; left:50%; top:50%; transform:translate(-50%,-50%);
+      width:14px; height:14px; border-radius:50%;
+      animation: ping 1.5s infinite ease-out;
+      background: rgba(255,77,77,0.3);
+    }
+    @keyframes ping {
+      0% { transform:translate(-50%,-50%) scale(1); opacity:0.8 }
+      100% { transform:translate(-50%,-50%) scale(3.5); opacity:0 }
+    }
+
+    /* Social icons at bottom right, moved higher */
+    .social-icons {
+      position: absolute;
+      bottom: 180px; /* higher so visible on mobile */
+      right: 20px;
+      display: flex;
+      gap: 10px;
+      z-index: 1000;
+    }
+    .social-icons img {
+      width: 32px;
+      height: 32px;
+      cursor: pointer;
+      transition: transform 0.2s;
+    }
+    .social-icons img:hover { transform: scale(1.2); }
+
+    @media (max-width: 768px) {
+      .social-icons { bottom: 140px; }
+      .social-icons img { width: 28px; height: 28px; }
+    }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+
+  <!-- Centered title -->
+  <div id="title-container">
+    <div id="title-box">$AUSBAGWORK</div>
+    <div id="subtitle">WHERE THEY ARE?</div>
+    <div id="current-location">CURRENTLY: Brisbane</div>
+  </div>
+
+  <!-- Social icons -->
+  <div class="social-icons">
+    <a href="https://x.com/i/communities/1967752489564045636" target="_blank">
+      <img src="https://i.postimg.cc/jSSK7CPW/XICON.png" alt="X">
+    </a>
+    <a href="https://dexscreener.com/solana/4raksg19wtothervrimytjiqnrwch9klqnpn9seiaes8" target="_blank">
+      <img src="https://i.postimg.cc/3xfhC7Ft/WICON.png" alt="Website">
+    </a>
+  </div>
+
+  <!-- Bottom panel -->
+  <div class="bottom-panel">
+    <div class="price-panel">
+      <span id="tokenPrice">Price: --</span> |
+      <span id="tokenMcap">Market Cap: --</span> |
+      <span id="tokenChange">24h: --</span>
+    </div>
+    <div class="clock-container">
+      <div class="clock">
+        <div class="label">Australia — Brisbane</div>
+        <div class="time" id="ausTime">--:--:--</div>
+      </div>
+      <div class="clock">
+        <div class="label">US — New York</div>
+        <div class="time" id="usTime">--:--:--</div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <script>
+    const brisbane = [-27.4698, 153.0251];
+
+    // Init map
+    const map = L.map('map').setView(brisbane, 5);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 18,
+      attribution: '&copy; OpenStreetMap'
+    }).addTo(map);
+
+    // Pulsing marker
+    const pulsingIcon = L.divIcon({
+      html: '<div class="ping-wrapper"><div class="ping-circle"></div><div class="ping-dot"></div></div>',
+      iconSize: [18, 18],
+      iconAnchor: [9, 9],
+      className: ''
+    });
+    L.marker(brisbane, {icon: pulsingIcon}).addTo(map).bindPopup("Brisbane");
+
+    // Update clocks
+    function updateClocks() {
+      const now = new Date();
+      document.getElementById("ausTime").textContent =
+        now.toLocaleTimeString("en-AU", { timeZone: "Australia/Brisbane" });
+      document.getElementById("usTime").textContent =
+        now.toLocaleTimeString("en-US", { timeZone: "America/New_York" });
+    }
+    updateClocks();
+    setInterval(updateClocks, 1000);
+
+    // Fetch token data
+    async function fetchTokenData() {
+      try {
+        const resp = await fetch("https://api.dexscreener.com/latest/dex/pairs/solana/4rakSG19wtoThErVriMyTjiQNrWch9KLQnPn9sEiAES8");
+        const data = await resp.json();
+        const pair = data.pair;
+
+        document.getElementById("tokenPrice").textContent = "Price: $" + (pair.priceUsd || "0");
+        document.getElementById("tokenMcap").textContent = pair.fdv ? "Market Cap: $" + Number(pair.fdv).toLocaleString() : "Market Cap: --";
+
+        const change = pair.priceChange.h24;
+        const changeEl = document.getElementById("tokenChange");
+        changeEl.textContent = (change > 0 ? "+" : "") + change + "%";
+        changeEl.style.color = change > 0 ? "green" : (change < 0 ? "red" : "#000");
+      } catch (err) {
+        console.error("Error fetching token data:", err);
+        document.getElementById("tokenPrice").textContent = "Price: --";
+        document.getElementById("tokenMcap").textContent = "Market Cap: --";
+        const changeEl = document.getElementById("tokenChange");
+        changeEl.textContent = "24h: --";
+        changeEl.style.color = "#000";
+      }
+    }
+    fetchTokenData();
+    setInterval(fetchTokenData, 15000);
+  </script>
+</body>
+</html>
